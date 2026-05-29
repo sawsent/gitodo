@@ -1,3 +1,17 @@
+// Copyright 2026 sawsent
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 use std::process::{Command, exit};
 use std::path::PathBuf;
 use std::collections::HashMap;
@@ -47,6 +61,7 @@ fn main() {
     }
 }
 
+// HANDLERS
 fn handle_add(branch: &str, tdl: &TDL, task: String) -> Option<TDL> {
     let mut new_tdl = tdl.clone();
     let mut new_tasks = if let Some(tasks) = tdl.get(branch) {
@@ -101,6 +116,18 @@ fn handle_check(tasks: &Option<&Vec<String>>) {
     }
 }
 
+// HELPERS
+fn execute(cmd: &str) -> String {
+    let output = Command::new("sh")
+        .arg("-c")
+        .arg(cmd)
+        .output()
+        .expect("Failed to run command");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    stdout.to_string()
+}
+
 fn is_in_git_worktree() -> bool {
     execute("git rev-parse --is-inside-work-tree | tr -d '\n'") == "true".to_string()
 }
@@ -113,16 +140,7 @@ fn current_branch() -> String {
     execute("git rev-parse --abbrev-ref HEAD | tr -d '\n'")
 }
 
-fn save_tdl(tdl: &TDL) {
-    std::fs::write(&data_fp(), tdl_to_str(tdl)).expect("Unable to save gitodo list");
-}
-
-fn load_tdl() -> TDL {
-    let file = &data_fp();
-    if !file.exists() { HashMap::new() }
-    else { str_to_tdl(&std::fs::read_to_string(file).expect("Unable to load gitodo list")) }
-}
-
+// SERDE
 fn tdl_to_str(tdl: &HashMap<String, Vec<String>>) -> String {
     let mut builder = String::new();
     for (branch, tasks) in tdl {
@@ -171,15 +189,15 @@ fn str_to_tdl(s: &String) -> HashMap<String, Vec<String>> {
     full_map
 }
 
-fn execute(cmd: &str) -> String {
-    let output = Command::new("sh")
-        .arg("-c")
-        .arg(cmd)
-        .output()
-        .expect("Failed to run command");
+// STORAGE
+fn save_tdl(tdl: &TDL) {
+    std::fs::write(&data_fp(), tdl_to_str(tdl)).expect("Unable to save gitodo list");
+}
 
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    stdout.to_string()
+fn load_tdl() -> TDL {
+    let file = &data_fp();
+    if !file.exists() { HashMap::new() }
+    else { str_to_tdl(&std::fs::read_to_string(file).expect("Unable to load gitodo list")) }
 }
 
 const USAGE: &str = r#"gitodo - branch-scoped todo list for git repositories
@@ -193,3 +211,4 @@ USAGE:
 fn show_usage() {
     eprintln!("{}", USAGE)
 }
+
