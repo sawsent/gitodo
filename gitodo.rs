@@ -97,7 +97,7 @@ fn handle_check(tasks: &Option<&Vec<String>>) {
             let amount = tasks.len();
             println!("gitodo: Check failed. There are {} gitodos to complete.", amount);
         }
-        _ => println!("gitodo: Success"),
+        _ => (),
     }
 }
 
@@ -182,9 +182,13 @@ fn execute(cmd: &str) -> String {
     stdout.to_string()
 }
 
-const USAGE: &str = r#"
-USAGE:
+const USAGE: &str = r#"gitodo - branch-scoped todo list for git repositories
 
+USAGE:
+    gitodo add <task>     Add a new todo task to the current branch
+    gitodo done <n>       Mark todo number <n> as done (removes it)
+    gitodo ls             List all todos for the current branch
+    gitodo check          Exit with a message if any todos remain; succeed if none
 "#;
 fn show_usage() {
     eprintln!("{}", USAGE)
