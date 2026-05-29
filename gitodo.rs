@@ -68,7 +68,11 @@ fn handle_done(branch: &str, tdl: &TDL, idx: usize) -> Option<TDL> {
         } else {
             let mut new_tasks = tasks.clone();
             new_tasks.remove(idx);
-            new_tdl.insert(branch.into(), new_tasks);
+            if new_tasks.is_empty() {
+                new_tdl.remove(branch);
+            } else {
+                new_tdl.insert(branch.into(), new_tasks);
+            }
             Some(new_tdl)
         }
     } else {
