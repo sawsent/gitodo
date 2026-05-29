@@ -16,7 +16,7 @@ gitodo check          Exit with a message if any todos remain; succeed if none
 ## Installation
 
 ```sh
-curl -O <URL>/gitodo.rs
+curl -O https://raw.githubusercontent.com/sawsent/gitodo/refs/heads/main/gitodo.rs
 rustc gitodo.rs -o gitodo
 mv gitodo ~/.local/bin/
 ```
