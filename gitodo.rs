@@ -148,7 +148,11 @@ fn execute(args: &[&str]) -> String {
 }
 
 fn is_in_git_worktree() -> bool {
-    execute(&["rev-parse", "--is-inside-work-tree"]) == "true"
+    Command::new("git")
+        .args(["rev-parse", "--is-inside-work-tree"])
+        .output()
+        .map(|o| o.status.success() && String::from_utf8_lossy(&o.stdout).trim() == "true")
+        .unwrap_or(false)
 }
 
 fn data_fp() -> PathBuf {
