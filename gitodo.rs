@@ -129,7 +129,7 @@ fn handle_check(tasks: &Option<&Vec<String>>) -> Result {
     match tasks {
         Some(tasks) if !tasks.is_empty() => {
             let amount = tasks.len();
-            Result::Display(format!("gitodo: Check failed. There are {} gitodos to complete.", amount), true)
+            Result::Display(format!("gitodo: check failed ({} todos remaining)", amount), true)
         }
         _ => Result::Display("Success: No todos.".to_string(), false),
     }
