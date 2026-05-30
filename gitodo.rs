@@ -133,27 +133,30 @@ fn handle_check(tasks: &Option<&Vec<String>>) -> Result {
 }
 
 // HELPERS
-fn execute(cmd: &str) -> String {
-    let output = Command::new("sh")
-        .arg("-c")
-        .arg(cmd)
+fn execute(args: &[&str]) -> String {
+    let output = Command::new("git")
+        .args(args)
         .output()
-        .expect("Failed to run command");
+        .expect("Failed to run git command");
 
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    stdout.to_string()
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        panic!("git command failed: git {}\n{}", args.join(" "), stderr);
+    }
+
+    String::from_utf8_lossy(&output.stdout).trim().to_string()
 }
 
 fn is_in_git_worktree() -> bool {
-    execute("git rev-parse --is-inside-work-tree | tr -d '\n'") == "true"
+    execute(&["rev-parse", "--is-inside-work-tree"]) == "true"
 }
 
 fn data_fp() -> PathBuf {
-    PathBuf::from(execute("git rev-parse --show-toplevel | tr -d '\n'")).join(".git").join(".gitodo")
+    PathBuf::from(execute(&["rev-parse", "--show-toplevel"])).join(".git").join(".gitodo")
 }
 
 fn current_branch() -> String {
-    execute("git rev-parse --abbrev-ref HEAD | tr -d '\n'")
+    execute(&["rev-parse", "--abbrev-ref", "HEAD"])
 }
 
 // SERDE
