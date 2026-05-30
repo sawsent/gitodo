@@ -80,7 +80,7 @@ $ gitodo check
 gitodo: Check failed. There are 1 gitodos to complete.
 ```
 
-For me, this makes it easy to prevent queuing pipelines multiple times because of tiny forgotten changes.
+This makes it easy to prevent queuing pipelines multiple times because of tiny forgotten changes.
 
 When your pipeline takes a while to run, that gets frustrating very fast.
 

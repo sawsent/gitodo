@@ -31,7 +31,7 @@ type TDL = HashMap<String, Vec<String>>;
 enum Result {
     Usage,
     Display(String, bool),
-    Save(TDL),
+    Save(TDL, String),
     NoOp,
 }
 fn main() {
@@ -56,7 +56,10 @@ fn main() {
     };
 
     match result {
-        Result::Save(tdl) => save_tdl(&tdl, &save_file),
+        Result::Save(tdl, msg) => {
+            save_tdl(&tdl, &save_file);
+            println!("{}", msg);
+        },
         Result::Display(msg, false) => println!("{}", msg),
         Result::Display(msg, true) => {
             eprintln!("{}", msg);
@@ -69,21 +72,21 @@ fn main() {
 
 // HANDLERS
 fn handle_add(branch: &str, tdl: &TDL, task: String) -> Result {
-    if task.is_empty() {
+    if task.trim().is_empty() {
         return Result::Usage;
     }
     let mut new_tdl = tdl.clone();
     let mut new_tasks = tdl.get(branch).map(|t| t.clone()).unwrap_or(Vec::new());
-    new_tasks.push(task);
+    new_tasks.push(task.clone());
     new_tdl.insert(branch.into(), new_tasks);
-    Result::Save(new_tdl)
+    Result::Save(new_tdl, format!("added: {}", task))
 }
 fn handle_done(branch: &str, tdl: &TDL, idx_str_opt: Option<&String>) -> Result {
     match idx_str_opt {
         Some(all) if all == "all" => {
             let mut new_tdl = tdl.clone();
             new_tdl.remove(branch);
-            return Result::Save(new_tdl);
+            return Result::Save(new_tdl, "done: removed all tasks".to_string());
         }
         _ => ()
     }
@@ -97,20 +100,20 @@ fn handle_done(branch: &str, tdl: &TDL, idx_str_opt: Option<&String>) -> Result 
         Some(tasks) if idx < tasks.len() => {
             let mut new_tdl = tdl.clone();
             let mut new_tasks = tasks.clone();
-            new_tasks.remove(idx);
+            let task = new_tasks.remove(idx);
             if new_tasks.is_empty() {
                 new_tdl.remove(branch);
             } else {
                 new_tdl.insert(branch.into(), new_tasks);
             }
-            Result::Save(new_tdl)
+            Result::Save(new_tdl, format!("done: {}", task))
         }
         _ => Result::Display(format!("gitodo: Task {} does not exist", idx + 1), true),
     }
 }
 fn handle_ls(tasks: &Option<&Vec<String>>) -> Result {
     if tasks.is_none() {
-        return Result::NoOp;
+        return Result::Display("No todos.".to_string(), false);
     }
 
     let mut idx = 1;
@@ -128,7 +131,7 @@ fn handle_check(tasks: &Option<&Vec<String>>) -> Result {
             let amount = tasks.len();
             Result::Display(format!("gitodo: Check failed. There are {} gitodos to complete.", amount), true)
         }
-        _ => Result::NoOp,
+        _ => Result::Display("Success: No todos.".to_string(), false),
     }
 }
 
