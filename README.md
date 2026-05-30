@@ -10,18 +10,16 @@ Branch-scoped todo lists for Git repositories.
 
 gitodo is intentionally tiny: one Rust file, roughly 200 lines of code, that you can read, understand, and modify in a few minutes.
 
+Completely local, tasks don't follow your repository.
+
 ## Why?
 
 Sometimes you just need a small list of tasks tied to the work you're doing right now.
 
-Not GitHub Issues. Not a project board. Not a database. Not another file to commit.
-
-gitodo stores todos inside `.git/`, making them local to the repository and invisible to Git. Every branch gets its own todo list automatically.
+gitodo stores todos inside `.git/`, making them local to the repository and invisible to Git.
 
 Useful for:
-
-* Keeping track of work on feature branches
-* Remembering cleanup tasks before merging
+* Remembering cleanup tasks before pushing and queuing pipelines
 * Maintaining local notes that should never be committed
 * Blocking CI or scripts until all tasks are completed
 
@@ -40,12 +38,11 @@ Tasks follow the branch they belong to.
 ```sh
 $ git checkout feature/login
 
-$ gitodo add fix validation bug
-$ gitodo add write tests
+$ gitodo add remove magic string in file
+added: remove magic string in file
 
 $ gitodo
-1: fix validation bug
-2: write tests
+1: remove magic string in file
 
 $ git checkout main
 
@@ -55,8 +52,13 @@ No todos.
 $ git checkout feature/login
 
 $ gitodo
-1: fix validation bug
-2: write tests
+1: remove magic string in file
+
+$ gitodo done 1
+done: remove magic string in file
+
+$ gitodo
+No todos.
 ```
 
 ## Usage
@@ -78,14 +80,16 @@ $ gitodo check
 gitodo: Check failed. There are 1 gitodos to complete.
 ```
 
-This makes it easy to prevent merges, releases, or deployment steps while branch-specific tasks are still open.
+For me, this makes it easy to prevent queuing pipelines multiple times because of tiny forgotten changes.
+
+When your pipeline takes a while to run, that gets frustrating very fast.
 
 ## Installation
 
 No Cargo required.
 
 ```sh
-curl -O https://raw.githubusercontent.com/sawsent/gitodo/refs/tags/v0.1.1/gitodo.rs
+curl -O https://raw.githubusercontent.com/sawsent/gitodo/refs/tags/v0.1.2/gitodo.rs
 rustc gitodo.rs -o gitodo
 mv gitodo ~/.local/bin/
 ```
