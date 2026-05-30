@@ -12,11 +12,28 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::process::{Command, exit};
-use std::path::PathBuf;
 use std::collections::HashMap;
+use std::path::PathBuf;
+use std::process::{Command, exit};
+
+const USAGE: &str = r#"gitodo - branch-scoped todo list for git repositories
+
+USAGE:
+    gitodo                List all todos for the current branch
+    gitodo add <task>     Add a new todo task to the current branch
+    gitodo done <n>       Mark todo number <n> as done (removes it)
+    gitodo done all       Remove all todos for the current branch
+    gitodo check          Exit with a message if any todos remain; succeed if none
+    "#;
 
 type TDL = HashMap<String, Vec<String>>;
+
+enum Result {
+    Usage,
+    Display(String, bool),
+    Save(TDL),
+    NoOp,
+}
 fn main() {
     if !is_in_git_worktree() {
         eprintln!("gitodo: Not in git repository");
@@ -25,62 +42,60 @@ fn main() {
 
     let args: Vec<String> = std::env::args().skip(1).collect();
     let cmd = args.first();
+    let save_file = data_fp();
 
-    let current_branch = current_branch();
-
-    match cmd {
+    let result = match cmd {
+        None => handle_ls(&load_tdl(&save_file).get(&current_branch())),
         Some(cmd) if (cmd == "add") => {
             let task = args.iter().skip(1).map(|s| s.to_owned()).collect::<Vec<_>>().join(" ");
-            if !task.is_empty() {
-                if let Some(new_tdl) = handle_add(&current_branch, &load_tdl(), task) {
-                    save_tdl(&new_tdl);
-                }
-            } else {
-                show_usage();
-            }
+            handle_add(&current_branch(), &load_tdl(&save_file), task)
         }
+        Some(cmd) if (cmd == "done") => handle_done(&current_branch(), &load_tdl(&save_file), args.get(1)),
+        Some(cmd) if (cmd == "check") => handle_check(&load_tdl(&save_file).get(&current_branch())),
+        _ => Result::Usage,
+    };
 
-        Some(cmd) if (cmd == "done") => {
-            if let Some(idx) = args.get(1).map(|i| i.parse::<usize>().ok()).flatten() {
-                if let Some(new_tdl) = handle_done(&current_branch, &load_tdl(), idx - 1) {
-                    save_tdl(&new_tdl);
-                }
-            } else {
-                show_usage();
-            }
+    match result {
+        Result::Save(tdl) => save_tdl(&tdl, &save_file),
+        Result::Display(msg, false) => println!("{}", msg),
+        Result::Display(msg, true) => {
+            eprintln!("{}", msg);
+            exit(1);
         }
-
-        Some(cmd) if (cmd == "ls") => {
-            handle_ls(&load_tdl().get(&current_branch))
-        }
-
-        Some(cmd) if (cmd == "check") => {
-            handle_check(&load_tdl().get(&current_branch))
-        }
-        _ => show_usage(),
+        Result::Usage => eprintln!("{}", USAGE),
+        Result::NoOp => (),
     }
 }
 
 // HANDLERS
-fn handle_add(branch: &str, tdl: &TDL, task: String) -> Option<TDL> {
+fn handle_add(branch: &str, tdl: &TDL, task: String) -> Result {
+    if task.is_empty() {
+        return Result::Usage;
+    }
     let mut new_tdl = tdl.clone();
-    let mut new_tasks = if let Some(tasks) = tdl.get(branch) {
-        tasks.clone()
-    } else {
-        Vec::new()
-    };
+    let mut new_tasks = tdl.get(branch).map(|t| t.clone()).unwrap_or(Vec::new());
     new_tasks.push(task);
     new_tdl.insert(branch.into(), new_tasks);
-    Some(new_tdl)
+    Result::Save(new_tdl)
 }
-fn handle_done(branch: &str, tdl: &TDL, idx: usize) -> Option<TDL> {
-    let mut new_tdl = tdl.clone();
+fn handle_done(branch: &str, tdl: &TDL, idx_str_opt: Option<&String>) -> Result {
+    match idx_str_opt {
+        Some(all) if all == "all" => {
+            let mut new_tdl = tdl.clone();
+            new_tdl.remove(branch);
+            return Result::Save(new_tdl);
+        }
+        _ => ()
+    }
+    let idx_opt = idx_str_opt.map(|i| i.parse::<usize>().ok()).flatten();
+    if idx_opt.is_none() || idx_opt.unwrap() < 1 {
+        return Result::Usage;
+    }
 
-    if let Some(tasks) = new_tdl.get(branch) {
-        if idx >= tasks.len() {
-            eprintln!("gitodo: Task {} does not exist", idx);
-            None
-        } else {
+    let idx = idx_opt.unwrap() - 1;
+    match tdl.get(branch) {
+        Some(tasks) if idx < tasks.len() => {
+            let mut new_tdl = tdl.clone();
             let mut new_tasks = tasks.clone();
             new_tasks.remove(idx);
             if new_tasks.is_empty() {
@@ -88,31 +103,32 @@ fn handle_done(branch: &str, tdl: &TDL, idx: usize) -> Option<TDL> {
             } else {
                 new_tdl.insert(branch.into(), new_tasks);
             }
-            Some(new_tdl)
+            Result::Save(new_tdl)
         }
-    } else {
-        eprintln!("Task {} does not exist", idx);
-        None
+        _ => Result::Display(format!("gitodo: Task {} does not exist", idx + 1), true),
     }
 }
-fn handle_ls(tasks: &Option<&Vec<String>>) {
-    if let Some(tasks) = tasks {
-        let mut idx = 1;
-
-        for task in *tasks {
-            println!("{}: {}", idx, task);
-            idx = idx + 1;
-        }
+fn handle_ls(tasks: &Option<&Vec<String>>) -> Result {
+    if tasks.is_none() {
+        return Result::NoOp;
     }
 
+    let mut idx = 1;
+    let mut builder = String::new();
+    for task in tasks.unwrap() {
+        builder.push_str(&format!("{}: {}\n", idx, task));
+        idx = idx + 1;
+    }
+    let out = builder.strip_suffix("\n").unwrap_or("").to_string();
+    Result::Display(out, false)
 }
-fn handle_check(tasks: &Option<&Vec<String>>) {
+fn handle_check(tasks: &Option<&Vec<String>>) -> Result {
     match tasks {
         Some(tasks) if !tasks.is_empty() => {
             let amount = tasks.len();
-            println!("gitodo: Check failed. There are {} gitodos to complete.", amount);
+            Result::Display(format!("gitodo: Check failed. There are {} gitodos to complete.", amount), true)
         }
-        _ => (),
+        _ => Result::NoOp,
     }
 }
 
@@ -129,7 +145,7 @@ fn execute(cmd: &str) -> String {
 }
 
 fn is_in_git_worktree() -> bool {
-    execute("git rev-parse --is-inside-work-tree | tr -d '\n'") == "true".to_string()
+    execute("git rev-parse --is-inside-work-tree | tr -d '\n'") == "true"
 }
 
 fn data_fp() -> PathBuf {
@@ -190,25 +206,14 @@ fn str_to_tdl(s: &String) -> HashMap<String, Vec<String>> {
 }
 
 // STORAGE
-fn save_tdl(tdl: &TDL) {
-    std::fs::write(&data_fp(), tdl_to_str(tdl)).expect("Unable to save gitodo list");
+fn save_tdl(tdl: &TDL, file: &PathBuf) {
+    std::fs::write(file, tdl_to_str(tdl)).expect("Unable to save gitodo list");
 }
 
-fn load_tdl() -> TDL {
-    let file = &data_fp();
-    if !file.exists() { HashMap::new() }
-    else { str_to_tdl(&std::fs::read_to_string(file).expect("Unable to load gitodo list")) }
+fn load_tdl(file: &PathBuf) -> TDL {
+    if !file.exists() {
+        HashMap::new()
+    } else {
+        str_to_tdl(&std::fs::read_to_string(file).expect("Unable to load gitodo list"))
+    }
 }
-
-const USAGE: &str = r#"gitodo - branch-scoped todo list for git repositories
-
-USAGE:
-    gitodo add <task>     Add a new todo task to the current branch
-    gitodo done <n>       Mark todo number <n> as done (removes it)
-    gitodo ls             List all todos for the current branch
-    gitodo check          Exit with a message if any todos remain; succeed if none
-"#;
-fn show_usage() {
-    eprintln!("{}", USAGE)
-}
-
