@@ -2,38 +2,42 @@
 
 Branch-scoped todo lists for Git repositories.
 
-* Stores todos inside `.git/.gitodo`
-* Keeps them out of commits and the working tree
-* Separate todo list per branch
-* Single Rust source file
-* No dependencies
+Stores todos in a single file inside `.git/.gitodo`.
 
-gitodo is intentionally tiny: one Rust file, roughly 200 lines of code, that you can read, understand, and modify in a few minutes.
+- One todo list per branch  
+- Single Rust source file (~200 LOC)  
+- No dependencies  
+- Plain-text storage  
 
-Completely local, tasks don't follow your repository.
+gitodo is a small CLI tool you can read and modify quickly. It keeps lightweight, local reminders tied to the branch you're working on.
 
-## Why?
+---
 
-Sometimes you just need a small list of tasks tied to the work you're doing right now.
+## What it is
 
-gitodo stores todos inside `.git/`, making them local to the repository and invisible to Git.
+gitodo lets you attach simple todo lists to Git branches.
 
-Useful for:
-* Remembering cleanup tasks before pushing and queuing pipelines
-* Maintaining local notes that should never be committed
-* Blocking CI or scripts until all tasks are completed
+When you switch branches, your todos switch with you.
 
-## Properties
+It’s useful for short-lived, local reminders like:
 
-* ~200 lines of Rust
-* 1 source file
-* 0 dependencies
-* Plain-text storage
-* Branch-scoped task lists
+- cleanup left after debugging
+- TODOs tied to a feature branch
+- small follow-ups before merging or pushing
+
+---
+
+## Design goals
+
+- Stay out of the working tree (`.git/.gitodo`)
+- No external dependencies
+- Human-readable storage format
+- Branch-isolated state
+- Easy to understand implementation
+
+---
 
 ## Example
-
-Tasks follow the branch they belong to.
 
 ```sh
 $ git checkout feature/login
@@ -61,28 +65,59 @@ $ gitodo
 No todos.
 ```
 
+---
+
 ## Usage
 
 ```sh
-gitodo                List all todos for the current branch
-gitodo add <task>     Add a new todo task to the current branch
-gitodo done <n>       Mark todo number <n> as done (removes it)
-gitodo done all       Remove all todos for the current branch
-gitodo check          Exit with a message if any todos remain; succeed if none
+gitodo                List todos for current branch
+gitodo add <task>     Add a todo
+gitodo done <n>       Mark todo <n> as done
+gitodo done all       Clear all todos for branch
+gitodo check          Exit non-zero if any todos exist
 ```
 
-## CI Example
+---
 
-Use `gitodo check` to fail a script when unfinished tasks remain:
+## CI usage
+
+`gitodo check` can be used in scripts to ensure no pending todos remain:
 
 ```sh
 $ gitodo check
-gitodo: Check failed. There are 1 gitodos to complete.
+gitodo: check failed (2 todos remaining)
 ```
 
-This makes it easy to prevent queuing pipelines multiple times because of tiny forgotten changes.
+Exit code is non-zero when todos are present.
 
-When your pipeline takes a while to run, that gets frustrating very fast.
+---
+
+## Storage format
+
+Todos are stored in:
+
+```text
+.git/.gitodo
+```
+
+In editable format:
+
+```text
+[feature/branch1]
+Task 1
+Task 2
+
+[feature/branch2]
+Task 1
+```
+
+Because it lives under `.git/`:
+
+- it is not tracked by Git
+- it does not appear in `git status`
+- it does not modify the working tree
+
+---
 
 ## Installation
 
@@ -94,24 +129,17 @@ rustc gitodo.rs -o gitodo
 mv gitodo ~/.local/bin/
 ```
 
-## How it works
+---
 
-gitodo stores all tasks in a single plain-text file:
+## Limitations
 
-```text
-.git/.gitodo
-```
+- Branch names are read as-is, no parsing
+- This tool assumes branch names are stable identifiers
+- No synchronization or remote behavior
+- No cleanup on branch deletion
+- Single line todos only
 
-Tasks are grouped by branch name.
-
-Because the file lives inside `.git/`:
-
-* It is never committed
-* It does not appear in `git status`
-* It does not affect the working tree
-* Switching branches automatically switches todo lists
-
-No database. No configuration. No hidden state outside the repository.
+---
 
 ## License
 
